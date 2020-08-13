@@ -9,26 +9,86 @@ class App extends React.Component {
         }
     }
 
-    createGraph(options) {
+    createGraph(opt) {
+        let options = opt
+        
+        //defaults
+        options.title = options.title || "graph title" 
+        if (typeof(options.decimals)!=="number") options.decimals = 2
+        if (typeof(options.legend)!=="boolean" && options.data.length > 1) options.legend = true
+        options.fontFamily = options.fontFamily || "Times New Roman"
+        options.xTitle = options.xTitle || "x axis title"
+        options.xInc = options.xInc || options.data[0].x.length - 1
+        if (typeof(options.xMin)!=="number") options.xMin = 0
+        if (typeof(options.xMax)!=="number") {
+            let biggestX = 0
+            for (let dataSet of options.data) {
+                for (let x of dataSet.x) {
+                    if (x > biggestX) biggestX = x
+                }
+            }
+            options.xMax = biggestX
+        }
+        if (typeof(options.xLineIncs)!=="number") options.xLineIncs = options.data[0].x.length - 1
+
+        options.yTitle = options.yTitle || "y axis title"
+        options.yInc = options.yInc || options.data[0].y.length + 1
+        if (typeof(options.yMin)!=="number") options.yMin = 0
+        if (typeof(options.yMax)!=="number") {
+            let biggestY = 0
+            for (let dataSet of options.data) {
+                for (let y of dataSet.y) {
+                    if (y > biggestY) biggestY = y
+                }
+            }
+            options.yMax = biggestY
+        }
+        if (typeof(options.yLineIncs)!=="number") options.yLineIncs = options.data[0].y.length + 1
+
+        for (let i=0; i<options.data.length; i++) {
+            options.data[i].name = options.data[i].name || `line ${i+1}`
+            options.data[i].shape = options.data[i].shape || "circle"
+            if (typeof(options.data[i].lineWidth)!=="number") options.data[i].lineWidth = 2
+            if (typeof(options.data[i].shapeSize)!=="number") {
+                if (options.data[i].shape==="circle") options.data[i].shapeSize = 5 //sizes should be diff
+                else if (options.data[i].shape==="square") options.data[i].shapeSize = 5
+                else if (options.data[i].shape==="triangle") options.data[i].shapeSize = 5
+                else if (options.data[i].shape==="rhombus") options.data[i].shapeSize = 5
+            }
+            options.data[i].color = options.data[i].color || "black" //colors should be diff
+        }
+
         let keyNum = 0
+
+        let xAxisEnd = 775
+        if (options.legend) xAxisEnd = 675
+        let xAxisWidth = xAxisEnd - 75
+
+        function roundToPlace(num, power) {
+            return Math.round(num*(10**power))/(10**power)
+        }
 
         //x graph elems
         let xIncs = []
         let xPos = 75
-        let xPosInc = 650/options.xInc
+        let xPosInc = xAxisWidth/options.xInc
         let xInc = (options.xMax - options.xMin)/options.xInc
         let currentX = options.xMin
         for (let i=0; i<=options.xInc; i++) {
             xIncs.push(
-                <text x={xPos} y="545" textAnchor="middle" style={{fontSize: "18px"}} key={keyNum}>{currentX}</text>
+                <text 
+                    x={xPos} y="545" textAnchor="middle"
+                    style={{fontSize: "18px", fontFamily: options.fontFamily}} key={keyNum}>
+                        {roundToPlace(currentX, options.decimals)}
+                </text>
             )
             xPos += xPosInc
             currentX += xInc
             keyNum++
-        } //needs rounding
+        }
 
         let xLines = [] //vert grid lines along x axis
-        let xLinePosInc = 650/options.xLineIncs
+        let xLinePosInc = xAxisWidth/options.xLineIncs
         let xLinePos = 75 + xLinePosInc
         for (let i=0; i < (options.xLineIncs - 1); i++) {
             xLines.push(
@@ -46,27 +106,37 @@ class App extends React.Component {
         let currentY = options.yMin
         for (let i=0; i<=options.yInc; i++) {
             yIncs.push(
-                <text x="68" y={yPos} textAnchor="end" style={{fontSize: "18px"}} key={keyNum}>{currentY}</text> //fix key
+                <text
+                    x="68" y={yPos} textAnchor="end"
+                    style={{fontSize: "18px", fontFamily: options.fontFamily}} key={keyNum}>
+                        {roundToPlace(currentY, options.decimals)}
+                </text>
             )
             yPos += yPosInc
             currentY += yInc
             keyNum++
-        } //needs rounding
+        }
 
-        let yLines = [] //vert grid lines along x axis
+        let yLines = [] //vert grid lines along y axis
         let yLinePosInc = -425/options.yLineIncs
         let yLinePos = 525 + yLinePosInc
         for (let i=0; i < (options.yLineIncs - 1); i++) {
             yLines.push(
-                <line x1="75" y1={yLinePos} x2="725" y2={yLinePos} style={{stroke: "gray", strokeWidth: ".5"}} key={keyNum}/>
+                <line x1="75" y1={yLinePos} x2={xAxisEnd} y2={yLinePos} style={{stroke: "gray", strokeWidth: ".5"}} key={keyNum}/>
             )
             yLinePos += yLinePosInc
             keyNum++
         }
 
         //data
-        function convertX(num) { return ((num - options.xMin)/(options.xMax - options.xMin))*650 + 75 }   //convert x 
+        function convertX(num) { return ((num - options.xMin)/(options.xMax - options.xMin))*xAxisWidth + 75 }   //convert x 
         function convertY(num) { return ((num - options.yMin)/(options.yMax - options.yMin))*-425 + 525 } //and y coords to coords on svg
+        function pointToTriangle(x, y, r) { //converts center of tri to string containing all pts of tri
+            return `${x},${y-r} ${x+0.866*r},${y + 0.5*r} ${x-0.866*r},${y+0.5*r}`
+        }
+        function pointToRhombus(x, y, r) { //converts center of rhom to string containing all pts of rhom
+            return `${x},${y-r} ${x-r},${y} ${x},${y+r} ${x+r},${y}`
+        }
 
         let data = []
         for (let dataSet of options.data) {
@@ -135,9 +205,6 @@ class App extends React.Component {
                     keyNum++
                 }
             } else if (dataSet.shape==="triangle") {
-                function pointToTriangle(x, y, r) { //converts center of tri to string containing all pts of tri
-                    return `${x},${y-r} ${x+0.866*r},${y + 0.5*r} ${x-0.866*r},${y+0.5*r}`
-                }
                 data.push(
                     <polygon
                         points={pointToTriangle(convertX(dataSet.x[0]), convertY(dataSet.y[0]), Number(dataSet.shapeSize))}
@@ -165,9 +232,6 @@ class App extends React.Component {
                     keyNum++
                 }
             } else if (dataSet.shape==="rhombus") {
-                function pointToRhombus(x, y, r) { //converts center of rhom to string containing all pts of rhom
-                    return `${x},${y-r} ${x-r},${y} ${x},${y+r} ${x+r},${y}`
-                }
                 data.push(
                     <polygon
                         points={pointToRhombus(convertX(dataSet.x[0]), convertY(dataSet.y[0]), Number(dataSet.shapeSize))}
@@ -197,54 +261,97 @@ class App extends React.Component {
             }
         }
 
+        //legend
+        let legend = []
+        if (options.legend) {
+            legend.push(
+                <text x="737.5" y="90" textAnchor="middle"
+                    style={{fontSize: "20px", fontFamily: options.fontFamily}} key={keyNum}>
+                        Legend
+                </text>
+            )
+            keyNum++
+            for (let i=0; i<options.data.length; i++) {
+                let dataSet = options.data[i]
+                if (dataSet.shape==="circle") {
+                    legend.push(
+                        <circle
+                            cx="695" cy={35*i + 120}
+                            r="6" fill={dataSet.color} key={keyNum}
+                        />
+                    )
+                } else if (dataSet.shape==="square") {
+                    legend.push(
+                        <rect
+                            x="689.5"
+                            y={35*i + 114.5}
+                            width="11" height="11" fill={dataSet.color} key={keyNum}
+                        />
+                    )
+                } else if (dataSet.shape==="triangle") {
+                    legend.push(
+                        <polygon
+                            points={pointToTriangle(695, (35*i + 121), 8)}
+                            fill={dataSet.color} key={keyNum}
+                        />
+                    )
+                } else if (dataSet.shape==="rhombus") {
+                    legend.push(
+                        <polygon
+                            points={pointToRhombus(695, (35*i + 120), 7)}
+                            fill={dataSet.color} key={keyNum}
+                        />
+                    )
+                }
+                keyNum++
+                legend.push(
+                    <line
+                        x1="685"
+                        y1={35*i + 120}
+                        x2="705"
+                        y2={35*i + 120}
+                        style={{stroke: dataSet.color, strokeWidth: "3"}} key={keyNum}
+                    />
+                )
+                keyNum++
+                legend.push(
+                    <text x="710" y={35*i + 125}
+                        style={{fontSize: "14px", fontFamily: options.fontFamily}} key={keyNum}>
+                            {dataSet.name}
+                    </text>
+                )
+                keyNum++
+            }
+        }
+
         return (
             <svg viewBox="0 0 800 600" style={{width: "800px"}}>
-                <text x="400" y="50" textAnchor="middle" style={{fontSize: "50px"}}>{options.title}</text>
-                <text x="400" y="585" textAnchor="middle" style={{fontSize: "20px"}}>{options.xTitle}</text>
+                <text x="400" y="50" textAnchor="middle" style={{fontSize: "50px", fontFamily: options.fontFamily}}>{options.title}</text>
+                <text x="400" y="585" textAnchor="middle" style={{fontSize: "20px", fontFamily: options.fontFamily}}>{options.xTitle}</text>
                 <text x="400" y="300" textAnchor="middle" style={{
-                        fontSize: "20px", transform: "rotate(270deg) translateY(-275px) translateX(-700px)" //idk
+                        fontSize: "20px", fontFamily: options.fontFamily,
+                        transform: "rotate(270deg) translateY(-275px) translateX(-700px)" //idk
                     }} id="y-title">{options.yTitle}</text>
                 <polygon points="0,0 0,600 800,600 800,0" style={{stroke: "black", strokeWidth: "1", fill: "none"}}></polygon>
-                <polygon points="75,100 75,525 725,525 725,100" style={{stroke: "black", strokeWidth: "1", fill: "none"}}></polygon>
+                <polygon points={`75,100 75,525 ${xAxisEnd},525 ${xAxisEnd},100`} style={{stroke: "black", strokeWidth: "1", fill: "none"}}></polygon>
                 {xIncs}
                 {yIncs}
                 {xLines}
                 {yLines}
-                {data} 
-                {/* add key */}
+                {data}
+                {legend}
             </svg>
         )
     }
 
     render() {
-        let theOptions = { //font family
-            title: "graph title",
-            xTitle: "x axis title",
-            xInc: 10,
-            xMin: 0,
-            xMax: 10,
-            xLineIncs: 10,
-            yTitle: "y axis title",
-            yMin: 0,
-            yInc: 10,
-            yMax: 100,
-            yLineIncs: 10,
+        let theOptions = {
             data: [
                 {
-                    name: "line 1",
-                    color: "blue",
-                    lineWidth: "2",
-                    shapeSize: "5",
-                    shape: "circle", //circle, square, triangle, rhombus
                     x: [ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,10],
                     y: [ 0, 5,10,50,23,50,25,33,45,65,66]
                 },
                 {
-                    name: "line 2",
-                    color: "red",
-                    lineWidth: "2",
-                    shapeSize: "6",
-                    shape: "rhombus", //circle, square, triangle, rhombus
                     x: [ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,10],
                     y: [52,45,39,36,45,60,80,95,102,55, 6]
                 }
@@ -259,8 +366,3 @@ class App extends React.Component {
 }
 
 export default App;
-
-//key
-//hover
-//defaults
-//rounding
